@@ -4,6 +4,15 @@ const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
 
+try {
+  const envFile = fs.readFileSync(path.join(__dirname, "..", ".env"), "utf8");
+  envFile.split(/\r?\n/).forEach((line) => {
+    const m = line.match(/^([^#=\s]+)\s*=\s*(.*)$/);
+    if (!m || process.env[m[1]]) return;
+    process.env[m[1]] = m[2].replace(/^["']|["']$/g, "").trim();
+  });
+} catch { /* no .env */ }
+
 const ON_VERCEL = process.env.VERCEL === "1";
 const ROOT = path.join(__dirname, "..");
 const SEED_DIR = path.join(ROOT, "data");
@@ -151,6 +160,120 @@ function requestUrl(req) {
   return new URL(req.url, proto + "://" + host);
 }
 
+const ZERO_DECIMAL = new Set(["BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF"]);
+
+function stripeAmount(total, currency) {
+  const cur = String(currency || "USD").toUpperCase();
+  const n = Number(total) || 0;
+  return ZERO_DECIMAL.has(cur) ? Math.max(1, Math.round(n)) : Math.max(1, Math.round(n * 100));
+}
+
+function stripeMethodTypes(method) {
+  const map = {
+    alipay: ["alipay", "card"],
+    wechat: ["wechat_pay", "card"],
+    grabpay: ["grabpay", "card"],
+    promptpay: ["promptpay", "card"],
+    paynow: ["paynow", "card"],
+    paypal: ["paypal", "card"]
+  };
+  return map[method] || ["card"];
+}
+
+async function stripeRequest(path, params) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  const body = new URLSearchParams();
+  const walk = (obj, prefix) => {
+    Object.entries(obj).forEach(([k, v]) => {
+      if (v == null || v === "") return;
+      const keyName = prefix ? prefix + "[" + k + "]" : k;
+      if (Array.isArray(v)) v.forEach((item, i) => {
+        if (item != null && typeof item === "object") walk(item, keyName + "[" + i + "]");
+        else body.append(keyName + "[" + i + "]", String(item));
+      });
+      else if (typeof v === "object") walk(v, keyName);
+      else body.append(keyName, String(v));
+    });
+  };
+  walk(params);
+  const res = await fetch("https://api.stripe.com/v1" + path, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error((data.error && data.error.message) || "Stripe error");
+    err.status = res.status;
+    err.payload = data;
+    throw err;
+  }
+  return data;
+}
+
+async function stripeGet(path) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  const res = await fetch("https://api.stripe.com/v1" + path, {
+    headers: { Authorization: "Bearer " + key }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error((data.error && data.error.message) || "Stripe error");
+    err.status = res.status;
+    err.payload = data;
+    throw err;
+  }
+  return data;
+}
+
+async function createStripeSession(order, origin) {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  const currency = String(order.currency || "USD").toLowerCase();
+  const title = String(order.title || "AsiaTix tickets").slice(0, 120);
+  const qty = Math.max(1, Number(order.qty) || 1);
+  const payload = {
+    mode: "payment",
+    success_url: origin + "/?paid=1&session_id={CHECKOUT_SESSION_ID}",
+    cancel_url: origin + "/?canceled=1",
+    customer_email: order.email || undefined,
+    payment_method_types: stripeMethodTypes(order.method),
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency,
+        unit_amount: String(stripeAmount(order.total, order.currency)),
+        product_data: { name: title, description: qty + " × " + (order.tier === "vip" ? "VIP" : "General") }
+      }
+    }],
+    metadata: {
+      orderId: String(order.id || "").slice(0, 40),
+      eventId: String(order.eventId || ""),
+      tier: String(order.tier || "gen"),
+      qty: String(qty),
+      method: String(order.method || "stripe"),
+      name: String(order.name || "").slice(0, 80)
+    }
+  };
+  if (order.method === "wechat") {
+    payload.payment_method_options = { wechat_pay: { client: "web" } };
+  }
+  try {
+    return await stripeRequest("/checkout/sessions", payload);
+  } catch (err) {
+    if (Array.isArray(payload.payment_method_types) && payload.payment_method_types.length > 1) {
+      payload.payment_method_types = ["card"];
+      delete payload.payment_method_options;
+      return await stripeRequest("/checkout/sessions", payload);
+    }
+    throw err;
+  }
+}
+
 async function handleApi(req, res, url) {
   const method = req.method;
   const p = url.pathname.replace(/\/$/, "") || "/";
@@ -187,6 +310,45 @@ async function handleApi(req, res, url) {
     const all = loadMessages();
     const one = all.find((t) => t.id === thread);
     return json(res, 200, one || { id: thread, messages: [] });
+  }
+
+  if (method === "GET" && p === "/api/payments") {
+    return json(res, 200, { stripe: Boolean(process.env.STRIPE_SECRET_KEY) });
+  }
+
+  if (method === "GET" && p === "/api/checkout/session") {
+    const id = url.searchParams.get("id");
+    if (!id || !process.env.STRIPE_SECRET_KEY) return json(res, 404, { error: "Not found" });
+    try {
+      const ses = await stripeGet("/checkout/sessions/" + encodeURIComponent(id));
+      if (!ses) return json(res, 404, { error: "Not found" });
+      const paid = ses.payment_status === "paid" || ses.status === "complete";
+      return json(res, 200, {
+        paid,
+        orderId: ses.metadata && ses.metadata.orderId,
+        eventId: ses.metadata && ses.metadata.eventId,
+        tier: ses.metadata && ses.metadata.tier,
+        qty: ses.metadata && ses.metadata.qty,
+        method: ses.metadata && ses.metadata.method,
+        name: ses.metadata && ses.metadata.name,
+        email: ses.customer_details && ses.customer_details.email || ses.customer_email
+      });
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
+  }
+
+  if (method === "POST" && p === "/api/checkout") {
+    const order = await parseJSON(req);
+    const origin = (req.headers["x-forwarded-proto"] || "http") + "://" + (req.headers.host || "localhost");
+    try {
+      const session = await createStripeSession(order, origin);
+      if (session && session.url) return json(res, 200, { url: session.url, id: session.id });
+      return json(res, 200, { demo: true });
+    } catch (err) {
+      console.error(err);
+      return json(res, 400, { error: err.message || "Stripe checkout failed" });
+    }
   }
 
   if (method === "POST" && p === "/api/chat") {

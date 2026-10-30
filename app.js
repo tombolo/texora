@@ -86,7 +86,7 @@
     document.documentElement.dir = L.dir;
     $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     $$("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
-    renderFilters(); renderEvents(false); renderDests(); renderPayments(); renderSelects();
+    renderFilters(); renderEvents(false); renderDests(); renderPayments(); renderKenya(); renderSelects();
     const c = COUNTRIES[state.country];
     $("#payForFlag").innerHTML = flagEl(state.country);
     $("#payForText").textContent = t("pay_for", { country: countryName(state.country) });
@@ -210,8 +210,22 @@
   function renderPayments() {
     const list = COUNTRIES[state.country].pay;
     $("#payMethods").innerHTML = list.map((id, i) => {
-      const m = METHODS[id];
-      return `<div class="pm" style="--i:${i};--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b></div></div>`;
+      const m = METHODS[id]; if (!m) return "";
+      return `<div class="pm" style="--i:${i};--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b><small>${m.via}</small></div></div>`;
+    }).join("");
+  }
+
+  function renderKenya() {
+    const grid = $("#kenyaRails"); if (!grid) return;
+    const rails = window.ASIATIX_KENYA || [];
+    grid.innerHTML = rails.map((r) => {
+      const m = METHODS[r.id]; if (!m) return "";
+      return `<article class="ke-rail" style="--c1:${m.c1};--c2:${m.c2}">
+        <span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span>
+        <b>${m.name}</b>
+        <span class="ke-land">${t("ke_lands")} ${r.lands}</span>
+        <p>${r.blurb}</p>
+      </article>`;
     }).join("");
   }
 
@@ -243,24 +257,28 @@
 
   function renderCheckout() {
     if (!co) return;
-    let html = header();
+    let main = header();
+    let actions = "";
     if (co.step === 1) {
-      html += `<div class="tiers">
+      main += `<div class="tiers">
         <button class="tier ${co.tier === "gen" ? "on" : ""}" data-tier="gen"><b>${t("t_gen")}</b><span>${money(unitLocal(co.ev.usd))}</span></button>
         <button class="tier ${co.tier === "vip" ? "on" : ""}" data-tier="vip"><b>${t("t_vip")}</b><span>${money(unitLocal(co.ev.usd) * 2.2)}</span></button></div>
         <div class="qty"><span>${t("qty")}</span><div class="qty-ctl"><button data-q="-1">−</button><output>${co.qty}</output><button data-q="1">+</button></div></div>
-        ${summary()}<div class="co-actions"><button class="btn btn-primary" data-go="2">${t("next")} →</button></div>`;
+        ${summary()}`;
+      actions = `<div class="co-actions"><button class="btn btn-primary" data-go="2">${t("next")} →</button></div>`;
     } else if (co.step === 2) {
-      html += `<label class="field">${t("name")}<input id="coName" autocomplete="name" value="${co.name}" /></label>
-        <label class="field">${t("email")}<input id="coEmail" type="email" autocomplete="email" value="${co.email}" /></label>
-        ${summary()}<div class="co-actions"><button class="btn btn-ghost" data-go="1">←</button><button class="btn btn-primary" data-go="3">${t("next")} →</button></div>`;
+      main += `<label class="field">${t("name")}<input id="coName" autocomplete="name" inputmode="text" value="${co.name.replace(/"/g, "&quot;")}" /></label>
+        <label class="field">${t("email")}<input id="coEmail" type="email" autocomplete="email" inputmode="email" value="${co.email.replace(/"/g, "&quot;")}" /></label>
+        ${summary()}`;
+      actions = `<div class="co-actions"><button class="btn btn-ghost" data-go="1">${t("back")}</button><button class="btn btn-primary" data-go="3">${t("next")}</button></div>`;
     } else if (co.step === 3) {
-      const list = COUNTRIES[state.country].pay;
-      html += `<div class="field paywith">${t("pay_with")} · ${flagEl(state.country)} ${countryName(state.country).replace("🌍 ", "")}</div>
-        <div class="pay-opts">${list.map((id) => { const m = METHODS[id]; return `<button class="opt ${co.method === id ? "on" : ""}" data-m="${id}" style="--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b></div><i class="dot"></i></button>`; }).join("")}</div>
-        ${summary()}<div class="co-actions"><button class="btn btn-ghost" data-go="2">←</button><button class="btn btn-primary" id="payBtn">🔒 ${t("pay_now", { amount: money(calc().total) })}</button></div>`;
+      const list = COUNTRIES[state.country].pay.filter((id) => METHODS[id]);
+      main += `<div class="field paywith">${t("pay_with")} · ${flagEl(state.country)} ${countryName(state.country).replace("🌍 ", "")}</div>
+        <div class="pay-opts">${list.map((id) => { const m = METHODS[id]; return `<button class="opt ${co.method === id ? "on" : ""}" data-m="${id}" style="--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b><small>${m.via}</small></div><i class="dot"></i></button>`; }).join("")}</div>
+        ${summary()}`;
+      actions = `<div class="co-actions"><button class="btn btn-ghost" data-go="2">${t("back")}</button><button class="btn btn-primary" id="payBtn">${t("pay_now", { amount: money(calc().total) })}</button></div>`;
     }
-    body.innerHTML = html;
+    body.innerHTML = `<div class="co-main">${main}</div>${actions}`;
   }
 
   function goStep(n) {
@@ -278,22 +296,53 @@
   }
 
   async function pay() {
-    const order = { id: "AT" + Math.random().toString(36).slice(2, 8).toUpperCase(), eventId: co.ev.id, tier: co.tier, qty: co.qty, method: co.method,
+    const order = { id: "AT" + Math.random().toString(36).slice(2, 8).toUpperCase(), eventId: co.ev.id, title: co.ev.title, img: co.ev.img, city: co.ev.city, cc: co.ev.cc, date: co.ev.date, tier: co.tier, qty: co.qty, method: co.method,
       currency: COUNTRIES[state.country].cur, total: calc().total, name: co.name, email: co.email, country: state.country };
-    body.innerHTML = `${header()}<div class="center"><div class="spinner"></div><h3>${t("processing")}</h3><p id="procMsg">${METHODS[co.method].name}</p></div>`;
+    try { sessionStorage.setItem("asiatix_order", JSON.stringify({ ...order, ev: co.ev })); } catch { /* ignore */ }
+    body.innerHTML = `<div class="co-main">${header()}<div class="center"><div class="spinner"></div><h3>${t("processing")}</h3><p id="procMsg">${(METHODS[co.method] || {}).name || "Stripe"}</p></div></div>`;
     try {
-      if (CFG.demoMode) {
-        await new Promise((r) => setTimeout(r, 2800));
-      } else {
+      let data = {};
+      try {
         const res = await fetch(CFG.checkoutEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order) });
-        const data = await res.json();
-        if (data.url) { location.href = data.url; return; }
-        throw new Error("No checkout url");
+        data = await res.json().catch(() => ({}));
+      } catch {
+        data = { demo: true };
       }
-      success(order);
+      if (data.url) { location.href = data.url; return; }
+      if (data.demo || CFG.demoMode) {
+        await new Promise((r) => setTimeout(r, 1600));
+        success(order);
+        return;
+      }
+      throw new Error(data.error || "Payment failed");
     } catch (err) {
-      console.error(err); co.step = 3; renderCheckout(); toast("⚠️ Payment failed — please try again");
+      console.error(err); co.step = 3; renderCheckout(); toast("⚠️ " + (err.message || "Payment failed"));
     }
+  }
+
+  async function resumeStripe() {
+    const q = new URLSearchParams(location.search);
+    if (q.get("canceled")) {
+      toast("Payment canceled");
+      history.replaceState({}, "", location.pathname + location.hash);
+      return;
+    }
+    const sid = q.get("session_id");
+    if (!q.get("paid") || !sid) return;
+    try {
+      const ses = await fetch("/api/checkout/session?id=" + encodeURIComponent(sid)).then((r) => r.json());
+      if (!ses || !ses.paid) return;
+      let pending = null;
+      try { pending = JSON.parse(sessionStorage.getItem("asiatix_order") || "null"); } catch { pending = null; }
+      const ev = (pending && pending.ev) || EVENTS.find((e) => String(e.id) === String(ses.eventId)) || EVENTS[0];
+      if (!ev) return;
+      co = { ev, tier: ses.tier || (pending && pending.tier) || "gen", qty: Number(ses.qty || (pending && pending.qty) || 1), step: 3, name: ses.name || (pending && pending.name) || "", email: ses.email || (pending && pending.email) || "", method: ses.method || "stripe" };
+      modal.hidden = false;
+      document.body.style.overflow = "hidden";
+      success({ id: ses.orderId || sid.slice(-8).toUpperCase(), eventId: ev.id, tier: co.tier, qty: co.qty, method: co.method, name: co.name, email: co.email });
+      try { sessionStorage.removeItem("asiatix_order"); } catch { /* ignore */ }
+    } catch (err) { console.error(err); }
+    history.replaceState({}, "", location.pathname);
   }
 
   function qrSVG(seed) {
@@ -319,14 +368,14 @@
   }
 
   function success(order) {
-    body.innerHTML = `<div class="center">
+    body.innerHTML = `<div class="co-main"><div class="center">
       <svg class="check" viewBox="0 0 100 100"><circle cx="50" cy="50" r="41"/><path d="M32 52l13 13 24-28"/></svg>
       <h3>${t("ok_t")}</h3><p>${t("ok_d", { email: order.email })}</p></div>
       <div class="e-ticket">
         <div class="e-top" style="background-image:url('${co.ev.img}')"><small>${co.ev.city.toUpperCase()} · ${co.ev.cc}</small><b>${co.ev.title}</b></div>
         <div class="e-mid"></div>
         <div class="e-bot">${qrSVG(order.id)}<div><b>${order.name}</b><span>${order.qty} × ${t(order.tier === "vip" ? "t_vip" : "t_gen")}</span><span>${dateFmt(co.ev)}</span><span>#${order.id}</span></div></div>
-      </div>
+      </div></div>
       <div class="co-actions"><button class="btn btn-primary" data-close>${t("close")}</button></div>`;
     confetti();
   }
@@ -435,11 +484,13 @@
     const pull = async () => {
       try { paint(await fetch("/api/chat?thread=" + encodeURIComponent(threadId)).then((r) => r.json())); } catch { /* offline */ }
     };
-    fab.addEventListener("click", () => {
-      panel.hidden = !panel.hidden;
-      if (!panel.hidden) { $("#chatDot").hidden = true; pull(); }
-    });
-    $("#chatClose").addEventListener("click", () => { panel.hidden = true; });
+    const setChat = (open) => {
+      panel.hidden = !open;
+      document.body.classList.toggle("chat-open", open);
+      if (open) { $("#chatDot").hidden = true; pull(); }
+    };
+    fab.addEventListener("click", () => setChat(panel.hidden));
+    $("#chatClose").addEventListener("click", () => setChat(false));
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = $("#chatText").value.trim(); if (!text) return;
@@ -470,6 +521,7 @@
       loadLiveEvents()
     ]);
     await runLoader(ready);
+    await resumeStripe();
     // apply language: explicit saved language wins over region default
     try {
       setRegion(result.cc, { save: false });
