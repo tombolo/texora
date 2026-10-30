@@ -1,0 +1,5 @@
+.git
+.env
+.env.*
+data/admin.json
+data/messages.json

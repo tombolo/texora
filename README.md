@@ -6,12 +6,23 @@ A modern, animated ticket marketplace for events across Asia. Language, currency
 
 ```bash
 cd C:\Users\Administrator\asiatix
-node server.js
+npm start
 ```
 
 Then open **http://localhost:5173**
 
 Or just open `index.html` in a browser (geo-detection needs a local server).
+
+## Deploy on Vercel
+
+Import this repo in [Vercel](https://vercel.com/new). There is no build step: static files are served from the root, and `/api/*` goes to the serverless function.
+
+Optional environment variables (Project → Settings → Environment Variables):
+
+- `ADMIN_PASSWORD` — admin panel password (defaults to `AsiaTixAdmin`)
+- `ADMIN_SECRET` — token signing secret (set this in production)
+
+The live site and `/admin` work after deploy. Admin and chat writes on Vercel are stored on the serverless filesystem, so they can reset between invocations. Seed events in `data/events.json` always load.
 
 Force a country for testing: `http://localhost:5173/?region=JP`  
 Codes: `CN` `HK` `TW` `JP` `KR` `IN` `TH` `VN` `ID` `MY` `SG` `PH` `AE` `SA`
@@ -34,6 +45,8 @@ All of the project lives in `C:\Users\Administrator\asiatix` on this computer:
 - `config.js` — countries, currencies, payment methods
 - `i18n.js` — translations
 - `server.js` — local server
+- `api/` — Vercel serverless API (same routes as the local server)
+- `vercel.json` — Vercel routing and headers
 
 ## Go live (real payments)
 
