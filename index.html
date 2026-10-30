@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>AsiaTix — Tickets to Asia's best nights</title>
-  <meta name="description" content="Buy tickets for concerts, festivals, sports and experiences across Asia. Auto-localised language, currency and payment methods." />
+  <meta name="description" content="Buy tickets for concerts, festivals, sports and experiences across Asia. Pay securely with Stripe." />
   <meta name="theme-color" content="#0b0b0c" />
   <link rel="icon" href="img/logo.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -42,7 +42,6 @@
     <nav class="nav-links">
       <a href="#events" data-i18n="nav_events">Events</a>
       <a href="#destinations" data-i18n="nav_dest">Destinations</a>
-      <a href="#payments" data-i18n="nav_pay">Payments</a>
       <a href="#faq" data-i18n="nav_faq">FAQ</a>
     </nav>
     <div class="nav-tools">
@@ -124,7 +123,7 @@
       <div class="section-head reveal"><h2 data-i18n="how_title">Three taps to the front row</h2></div>
       <div class="steps">
         <div class="step reveal"><span class="step-n">01</span><div class="step-ic"><img src="img/logo.jpg" alt="" /></div><h3 data-i18n="s1t">Pick your event</h3><p data-i18n="s1d">Browse by city, date or vibe.</p></div>
-        <div class="step reveal d1"><span class="step-n">02</span><div class="step-ic"><img src="img/pay.jpg" alt="" /></div><h3 data-i18n="s2t">Pay your way</h3><p data-i18n="s2d">Local wallets, cards and more.</p></div>
+        <div class="step reveal d1"><span class="step-n">02</span><div class="step-ic"><img src="img/pay.jpg" alt="" /></div><h3 data-i18n="s2t">Pay with Stripe</h3><p data-i18n="s2d">Cards, Apple Pay and Google Pay — in your currency.</p></div>
         <div class="step reveal d2"><span class="step-n">03</span><div class="step-ic"><img src="img/phone.jpg" alt="" /></div><h3 data-i18n="s3t">Get your e-ticket</h3><p data-i18n="s3d">Instant QR ticket.</p></div>
       </div>
     </section>
@@ -136,33 +135,6 @@
         <p data-i18n="dest_sub">Where the crowds are heading next.</p>
       </div>
       <div class="dest-grid" id="destGrid"></div>
-    </section>
-
-    <!-- ============ PAYMENTS ============ -->
-    <section class="section pay" id="payments">
-      <div class="pay-card reveal">
-        <div class="pay-copy">
-          <h2 data-i18n="pay_title">Pay the way you already do</h2>
-          <p data-i18n="pay_sub">Locally loved payment methods, shown automatically for your country.</p>
-          <div class="pay-for"><span id="payForFlag">🌏</span><span id="payForText"></span></div>
-          <div class="secure"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-i18n="secure">256-bit encrypted checkout</span></div>
-        </div>
-        <div class="pay-methods" id="payMethods"></div>
-      </div>
-
-      <div class="ke-card reveal" id="kenya">
-        <div class="ke-copy">
-          <p class="ke-kicker" data-i18n="ke_kicker">Asia → Kenya</p>
-          <h2 data-i18n="ke_title">Money that actually lands in Nairobi</h2>
-          <p data-i18n="ke_sub">Local wallets collect in Asia. These rails settle to a Kenyan bank or M-Pesa.</p>
-        </div>
-        <div class="ke-path" aria-hidden="true">
-          <span class="ke-pill" data-i18n="ke_from">Tokyo · Seoul · Singapore · Dubai</span>
-          <span class="ke-line"><i></i></span>
-          <span class="ke-pill ke-dest" data-i18n="ke_to">Nairobi · M-Pesa · KES</span>
-        </div>
-        <div class="ke-grid" id="kenyaRails"></div>
-      </div>
     </section>
 
     <!-- ============ FAQ ============ -->

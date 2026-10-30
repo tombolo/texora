@@ -161,6 +161,27 @@ function requestUrl(req) {
 }
 
 const ZERO_DECIMAL = new Set(["BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF"]);
+const SERVICE_FEE = 0.03;
+const COUNTRY_CUR = {
+  CN: "CNY", HK: "HKD", TW: "TWD", JP: "JPY", KR: "KRW", IN: "INR", TH: "THB",
+  VN: "VND", ID: "IDR", MY: "MYR", SG: "SGD", PH: "PHP", AE: "AED", SA: "SAR", XX: "USD"
+};
+const RATES = {
+  USD: 1, CNY: 7.2, HKD: 7.8, TWD: 32, JPY: 150, KRW: 1350, INR: 84,
+  THB: 35, VND: 25000, IDR: 15800, MYR: 4.4, SGD: 1.34, PHP: 57, AED: 3.67, SAR: 3.75, KES: 129
+};
+
+function fail(message, status) {
+  const err = new Error(message);
+  err.status = status || 400;
+  return err;
+}
+
+function round3(n) {
+  if (n <= 0) return 0;
+  const m = Math.pow(10, Math.floor(Math.log10(n)) - 2);
+  return Math.round(n / m) * m;
+}
 
 function stripeAmount(total, currency) {
   const cur = String(currency || "USD").toUpperCase();
@@ -168,27 +189,57 @@ function stripeAmount(total, currency) {
   return ZERO_DECIMAL.has(cur) ? Math.max(1, Math.round(n)) : Math.max(1, Math.round(n * 100));
 }
 
-function stripeMethodTypes(method) {
-  const map = {
-    alipay: ["alipay", "card"],
-    wechat: ["wechat_pay", "card"],
-    grabpay: ["grabpay", "card"],
-    promptpay: ["promptpay", "card"],
-    paynow: ["paynow", "card"],
-    paypal: ["paypal", "card"]
-  };
-  return map[method] || ["card"];
+function publicOrigin(req) {
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+  return proto + "://" + host;
 }
 
-async function stripeRequest(path, params) {
+function quoteOrder(order) {
+  const ev = loadEvents().find((e) => Number(e.id) === Number(order.eventId));
+  if (!ev) throw fail("Event not found", 400);
+  const qty = Math.min(10, Math.max(1, Number(order.qty) || 1));
+  const tier = order.tier === "vip" ? "vip" : "gen";
+  const email = String(order.email || "").trim();
+  const name = String(order.name || "").trim().slice(0, 80);
+  if (name.length < 2) throw fail("Name required", 400);
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw fail("Valid email required", 400);
+  const cc = COUNTRY_CUR[order.country] ? order.country : "XX";
+  const currency = COUNTRY_CUR[cc];
+  const rate = RATES[currency] || 1;
+  const unitUsd = Number(ev.usd) || 0;
+  const unit = (currency === "USD" ? unitUsd : round3(unitUsd * rate)) * (tier === "vip" ? 2.2 : 1);
+  const sub = unit * qty;
+  const total = sub + sub * SERVICE_FEE;
+  const usdTotal = unitUsd * (tier === "vip" ? 2.2 : 1) * qty * (1 + SERVICE_FEE);
+  return {
+    orderId: String(order.id || ("AT" + Date.now().toString(36))).slice(0, 40),
+    eventId: ev.id,
+    title: String(ev.title || "AsiaTix tickets").slice(0, 120),
+    city: String(ev.city || ""),
+    qty,
+    tier,
+    email,
+    name,
+    currency,
+    total,
+    stripeAmount: stripeAmount(total, currency),
+    usdTotal,
+    country: cc
+  };
+}
+
+async function stripeRequest(path, params, extraHeaders) {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return null;
+  if (!key) throw fail("Stripe is not configured. Set STRIPE_SECRET_KEY.", 503);
   const body = new URLSearchParams();
   const walk = (obj, prefix) => {
     Object.entries(obj).forEach(([k, v]) => {
       if (v == null || v === "") return;
       const keyName = prefix ? prefix + "[" + k + "]" : k;
-      if (Array.isArray(v)) v.forEach((item, i) => {
+      if (typeof v === "boolean") body.append(keyName, v ? "true" : "false");
+      else if (Array.isArray(v)) v.forEach((item, i) => {
         if (item != null && typeof item === "object") walk(item, keyName + "[" + i + "]");
         else body.append(keyName + "[" + i + "]", String(item));
       });
@@ -201,7 +252,8 @@ async function stripeRequest(path, params) {
     method: "POST",
     headers: {
       Authorization: "Bearer " + key,
-      "Content-Type": "application/x-www-form-urlencoded"
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...(extraHeaders || {})
     },
     body
   });
@@ -231,47 +283,101 @@ async function stripeGet(path) {
   return data;
 }
 
-async function createStripeSession(order, origin) {
-  if (!process.env.STRIPE_SECRET_KEY) return null;
-  const currency = String(order.currency || "USD").toLowerCase();
-  const title = String(order.title || "AsiaTix tickets").slice(0, 120);
-  const qty = Math.max(1, Number(order.qty) || 1);
-  const payload = {
+function sessionPayload(priced, origin, currency, amount) {
+  return {
     mode: "payment",
+    submit_type: "pay",
     success_url: origin + "/?paid=1&session_id={CHECKOUT_SESSION_ID}",
     cancel_url: origin + "/?canceled=1",
-    customer_email: order.email || undefined,
-    payment_method_types: stripeMethodTypes(order.method),
+    customer_email: priced.email,
+    client_reference_id: priced.orderId,
+    locale: "auto",
+    billing_address_collection: "auto",
     line_items: [{
       quantity: 1,
       price_data: {
-        currency,
-        unit_amount: String(stripeAmount(order.total, order.currency)),
-        product_data: { name: title, description: qty + " × " + (order.tier === "vip" ? "VIP" : "General") }
+        currency: currency.toLowerCase(),
+        unit_amount: String(amount),
+        product_data: {
+          name: priced.title,
+          description: priced.qty + " × " + (priced.tier === "vip" ? "VIP" : "General") + (priced.city ? " · " + priced.city : "")
+        }
       }
     }],
     metadata: {
-      orderId: String(order.id || "").slice(0, 40),
-      eventId: String(order.eventId || ""),
-      tier: String(order.tier || "gen"),
-      qty: String(qty),
-      method: String(order.method || "stripe"),
-      name: String(order.name || "").slice(0, 80)
+      orderId: priced.orderId,
+      eventId: String(priced.eventId),
+      tier: priced.tier,
+      qty: String(priced.qty),
+      method: "stripe",
+      name: priced.name,
+      country: priced.country
+    },
+    payment_intent_data: {
+      description: "AsiaTix " + priced.orderId,
+      metadata: { orderId: priced.orderId, eventId: String(priced.eventId) }
     }
   };
-  if (order.method === "wechat") {
-    payload.payment_method_options = { wechat_pay: { client: "web" } };
-  }
+}
+
+async function createStripeSession(order, origin) {
+  const priced = quoteOrder(order);
   try {
-    return await stripeRequest("/checkout/sessions", payload);
+    return await stripeRequest(
+      "/checkout/sessions",
+      sessionPayload(priced, origin, priced.currency, priced.stripeAmount),
+      { "Idempotency-Key": priced.orderId + "-" + priced.currency }
+    );
   } catch (err) {
-    if (Array.isArray(payload.payment_method_types) && payload.payment_method_types.length > 1) {
-      payload.payment_method_types = ["card"];
-      delete payload.payment_method_options;
-      return await stripeRequest("/checkout/sessions", payload);
+    if (priced.currency !== "USD" && /currency/i.test(err.message || "")) {
+      return await stripeRequest(
+        "/checkout/sessions",
+        sessionPayload(priced, origin, "USD", stripeAmount(priced.usdTotal, "USD")),
+        { "Idempotency-Key": priced.orderId + "-USD" }
+      );
     }
     throw err;
   }
+}
+
+function verifyStripeSignature(raw, header, secret) {
+  if (!header || !secret) return false;
+  let timestamp = "";
+  const signatures = [];
+  String(header).split(",").forEach((piece) => {
+    const i = piece.indexOf("=");
+    if (i < 0) return;
+    const k = piece.slice(0, i).trim();
+    const v = piece.slice(i + 1).trim();
+    if (k === "t") timestamp = v;
+    else if (k === "v1") signatures.push(v);
+  });
+  if (!timestamp || !signatures.length) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+  const expected = crypto.createHmac("sha256", secret).update(timestamp + "." + raw.toString("utf8")).digest("hex");
+  return signatures.some((sig) => safeEqual(expected, sig));
+}
+
+async function handleStripeWebhook(req, res) {
+  const raw = await readBody(req);
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) return json(res, 503, { error: "STRIPE_WEBHOOK_SECRET is not set" });
+  if (!verifyStripeSignature(raw, req.headers["stripe-signature"], secret)) {
+    return json(res, 400, { error: "Invalid Stripe signature" });
+  }
+  let event;
+  try { event = JSON.parse(raw.toString("utf8")); } catch { return json(res, 400, { error: "Invalid payload" }); }
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data && event.data.object;
+    if (session && session.payment_status === "paid") {
+      console.log("Stripe paid", session.metadata && session.metadata.orderId, session.id);
+    }
+  }
+  if (event.type === "checkout.session.async_payment_failed") {
+    const session = event.data && event.data.object;
+    console.warn("Stripe payment failed", session && session.metadata && session.metadata.orderId, session && session.id);
+  }
+  return json(res, 200, { received: true });
 }
 
 async function handleApi(req, res, url) {
@@ -312,26 +418,28 @@ async function handleApi(req, res, url) {
     return json(res, 200, one || { id: thread, messages: [] });
   }
 
-  if (method === "GET" && p === "/api/payments") {
-    return json(res, 200, { stripe: Boolean(process.env.STRIPE_SECRET_KEY) });
+  if (method === "POST" && (p === "/api/webhooks/stripe" || p === "/api/webhook/stripe")) {
+    return handleStripeWebhook(req, res);
   }
 
   if (method === "GET" && p === "/api/checkout/session") {
     const id = url.searchParams.get("id");
-    if (!id || !process.env.STRIPE_SECRET_KEY) return json(res, 404, { error: "Not found" });
+    if (!id || !/^cs_(test|live)_[A-Za-z0-9]+$/.test(id)) return json(res, 400, { error: "Invalid session" });
+    if (!process.env.STRIPE_SECRET_KEY) return json(res, 503, { error: "Stripe is not configured" });
     try {
       const ses = await stripeGet("/checkout/sessions/" + encodeURIComponent(id));
       if (!ses) return json(res, 404, { error: "Not found" });
-      const paid = ses.payment_status === "paid" || ses.status === "complete";
       return json(res, 200, {
-        paid,
+        paid: ses.payment_status === "paid",
+        status: ses.status,
+        payment_status: ses.payment_status,
         orderId: ses.metadata && ses.metadata.orderId,
         eventId: ses.metadata && ses.metadata.eventId,
         tier: ses.metadata && ses.metadata.tier,
         qty: ses.metadata && ses.metadata.qty,
-        method: ses.metadata && ses.metadata.method,
+        method: "stripe",
         name: ses.metadata && ses.metadata.name,
-        email: ses.customer_details && ses.customer_details.email || ses.customer_email
+        email: (ses.customer_details && ses.customer_details.email) || ses.customer_email
       });
     } catch (err) {
       return json(res, 400, { error: err.message });
@@ -339,15 +447,15 @@ async function handleApi(req, res, url) {
   }
 
   if (method === "POST" && p === "/api/checkout") {
-    const order = await parseJSON(req);
-    const origin = (req.headers["x-forwarded-proto"] || "http") + "://" + (req.headers.host || "localhost");
+    if (!process.env.STRIPE_SECRET_KEY) return json(res, 503, { error: "Stripe is not configured. Set STRIPE_SECRET_KEY." });
     try {
-      const session = await createStripeSession(order, origin);
-      if (session && session.url) return json(res, 200, { url: session.url, id: session.id });
-      return json(res, 200, { demo: true });
+      const order = await parseJSON(req);
+      const session = await createStripeSession(order, publicOrigin(req));
+      if (!session || !session.url) throw fail("Could not start Stripe Checkout", 502);
+      return json(res, 200, { url: session.url, id: session.id });
     } catch (err) {
       console.error(err);
-      return json(res, 400, { error: err.message || "Stripe checkout failed" });
+      return json(res, err.status || 400, { error: err.message || "Stripe checkout failed" });
     }
   }
 
@@ -489,4 +597,4 @@ async function handleRequest(req, res) {
   }
 }
 
-module.exports = { handleApi, handleRequest, json, requestUrl };
+module.exports = { handleApi, handleRequest, handleStripeWebhook, json, requestUrl };

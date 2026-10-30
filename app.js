@@ -5,7 +5,6 @@
   "use strict";
 
   const CFG = window.ASIATIX_CONFIG;
-  const METHODS = window.ASIATIX_METHODS;
   const COUNTRIES = window.ASIATIX_COUNTRIES;
   const LANGS = window.ASIATIX_LANGS;
   const I18N = window.ASIATIX_I18N;
@@ -86,10 +85,7 @@
     document.documentElement.dir = L.dir;
     $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     $$("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
-    renderFilters(); renderEvents(false); renderDests(); renderPayments(); renderKenya(); renderSelects();
-    const c = COUNTRIES[state.country];
-    $("#payForFlag").innerHTML = flagEl(state.country);
-    $("#payForText").textContent = t("pay_for", { country: countryName(state.country) });
+    renderFilters(); renderEvents(false); renderDests(); renderSelects();
     $("#regionFlag").innerHTML = flagEl(state.country);
     $("#chipLoc").textContent = `${countryName(state.country).replace("🌍 ", "")} · ${L.label}`;
     document.title = `AsiaTix — ${t("h1a")} ${t("h1b")}`;
@@ -207,28 +203,6 @@
         <div><h3>${flagEl(d.cc)} ${d.city}</h3><p>${t("n_events", { n: d.n || EVENTS.filter((e) => e.city === d.city).length })}</p></div></div>`).join("");
   }
 
-  function renderPayments() {
-    const list = COUNTRIES[state.country].pay;
-    $("#payMethods").innerHTML = list.map((id, i) => {
-      const m = METHODS[id]; if (!m) return "";
-      return `<div class="pm" style="--i:${i};--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b><small>${m.via}</small></div></div>`;
-    }).join("");
-  }
-
-  function renderKenya() {
-    const grid = $("#kenyaRails"); if (!grid) return;
-    const rails = window.ASIATIX_KENYA || [];
-    grid.innerHTML = rails.map((r) => {
-      const m = METHODS[r.id]; if (!m) return "";
-      return `<article class="ke-rail" style="--c1:${m.c1};--c2:${m.c2}">
-        <span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span>
-        <b>${m.name}</b>
-        <span class="ke-land">${t("ke_lands")} ${r.lands}</span>
-        <p>${r.blurb}</p>
-      </article>`;
-    }).join("");
-  }
-
   /* ---------------- toast ---------------- */
   let toastTimer;
   function toast(msg) {
@@ -244,7 +218,7 @@
 
   function openCheckout(id) {
     const ev = EVENTS.find((e) => e.id === id); if (!ev) return;
-    co = { ev, tier: "gen", qty: 2, step: 1, name: "", email: "", method: COUNTRIES[state.country].pay[0] };
+    co = { ev, tier: "gen", qty: 2, step: 1, name: "", email: "", method: "stripe", orderId: "AT" + Math.random().toString(36).slice(2, 8).toUpperCase() };
     modal.hidden = false; document.body.style.overflow = "hidden"; renderCheckout();
   }
   function closeCheckout() { modal.hidden = true; document.body.style.overflow = ""; co = null; }
@@ -272,9 +246,13 @@
         ${summary()}`;
       actions = `<div class="co-actions"><button class="btn btn-ghost" data-go="1">${t("back")}</button><button class="btn btn-primary" data-go="3">${t("next")}</button></div>`;
     } else if (co.step === 3) {
-      const list = COUNTRIES[state.country].pay.filter((id) => METHODS[id]);
-      main += `<div class="field paywith">${t("pay_with")} · ${flagEl(state.country)} ${countryName(state.country).replace("🌍 ", "")}</div>
-        <div class="pay-opts">${list.map((id) => { const m = METHODS[id]; return `<button class="opt ${co.method === id ? "on" : ""}" data-m="${id}" style="--c1:${m.c1};--c2:${m.c2}"><span class="pm-ic ${m.dark ? "dark" : ""}">${m.short}</span><div><b>${m.name}</b><small>${m.via}</small></div><i class="dot"></i></button>`; }).join("")}</div>
+      main += `<div class="stripe-box">
+        <div class="stripe-logo" aria-hidden="true">S</div>
+        <div>
+          <b>Stripe</b>
+          <p>${t("stripe_blurb")}</p>
+        </div>
+      </div>
         ${summary()}`;
       actions = `<div class="co-actions"><button class="btn btn-ghost" data-go="2">${t("back")}</button><button class="btn btn-primary" id="payBtn">${t("pay_now", { amount: money(calc().total) })}</button></div>`;
     }
@@ -296,53 +274,75 @@
   }
 
   async function pay() {
-    const order = { id: "AT" + Math.random().toString(36).slice(2, 8).toUpperCase(), eventId: co.ev.id, title: co.ev.title, img: co.ev.img, city: co.ev.city, cc: co.ev.cc, date: co.ev.date, tier: co.tier, qty: co.qty, method: co.method,
-      currency: COUNTRIES[state.country].cur, total: calc().total, name: co.name, email: co.email, country: state.country };
+    if (!co || co.paying) return;
+    co.paying = true;
+    const order = {
+      id: co.orderId,
+      eventId: co.ev.id,
+      title: co.ev.title,
+      img: co.ev.img,
+      city: co.ev.city,
+      cc: co.ev.cc,
+      date: co.ev.date,
+      tier: co.tier,
+      qty: co.qty,
+      method: "stripe",
+      currency: COUNTRIES[state.country].cur,
+      total: calc().total,
+      name: co.name,
+      email: co.email,
+      country: state.country
+    };
     try { sessionStorage.setItem("asiatix_order", JSON.stringify({ ...order, ev: co.ev })); } catch { /* ignore */ }
-    body.innerHTML = `<div class="co-main">${header()}<div class="center"><div class="spinner"></div><h3>${t("processing")}</h3><p id="procMsg">${(METHODS[co.method] || {}).name || "Stripe"}</p></div></div>`;
+    body.innerHTML = `<div class="co-main">${header()}<div class="center"><div class="spinner"></div><h3>${t("processing")}</h3><p id="procMsg">${t("stripe_redirect")}</p></div></div>`;
     try {
-      let data = {};
-      try {
-        const res = await fetch(CFG.checkoutEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order) });
-        data = await res.json().catch(() => ({}));
-      } catch {
-        data = { demo: true };
-      }
-      if (data.url) { location.href = data.url; return; }
-      if (data.demo || CFG.demoMode) {
-        await new Promise((r) => setTimeout(r, 1600));
-        success(order);
-        return;
-      }
-      throw new Error(data.error || "Payment failed");
+      const res = await fetch(CFG.checkoutEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || "Stripe is not configured");
+      location.href = data.url;
     } catch (err) {
-      console.error(err); co.step = 3; renderCheckout(); toast("⚠️ " + (err.message || "Payment failed"));
+      console.error(err);
+      co.paying = false;
+      co.step = 3;
+      renderCheckout();
+      toast("⚠️ " + (err.message || "Payment failed"));
     }
   }
 
   async function resumeStripe() {
     const q = new URLSearchParams(location.search);
+    const clean = () => history.replaceState({}, "", location.pathname + location.hash);
     if (q.get("canceled")) {
-      toast("Payment canceled");
-      history.replaceState({}, "", location.pathname + location.hash);
+      toast(t("stripe_canceled"));
+      clean();
       return;
     }
     const sid = q.get("session_id");
     if (!q.get("paid") || !sid) return;
     try {
       const ses = await fetch("/api/checkout/session?id=" + encodeURIComponent(sid)).then((r) => r.json());
-      if (!ses || !ses.paid) return;
+      if (!ses || ses.error) { toast(ses && ses.error ? ses.error : t("stripe_incomplete")); clean(); return; }
+      if (!ses.paid) { toast(t("stripe_pending")); clean(); return; }
       let pending = null;
       try { pending = JSON.parse(sessionStorage.getItem("asiatix_order") || "null"); } catch { pending = null; }
       const ev = (pending && pending.ev) || EVENTS.find((e) => String(e.id) === String(ses.eventId)) || EVENTS[0];
       if (!ev) return;
-      co = { ev, tier: ses.tier || (pending && pending.tier) || "gen", qty: Number(ses.qty || (pending && pending.qty) || 1), step: 3, name: ses.name || (pending && pending.name) || "", email: ses.email || (pending && pending.email) || "", method: ses.method || "stripe" };
+      co = {
+        ev,
+        tier: ses.tier || (pending && pending.tier) || "gen",
+        qty: Number(ses.qty || (pending && pending.qty) || 1),
+        step: 3,
+        name: ses.name || (pending && pending.name) || "",
+        email: ses.email || (pending && pending.email) || "",
+        method: "stripe",
+        orderId: ses.orderId || (pending && pending.id)
+      };
       modal.hidden = false;
       document.body.style.overflow = "hidden";
-      success({ id: ses.orderId || sid.slice(-8).toUpperCase(), eventId: ev.id, tier: co.tier, qty: co.qty, method: co.method, name: co.name, email: co.email });
+      success({ id: co.orderId || sid.slice(-8).toUpperCase(), eventId: ev.id, tier: co.tier, qty: co.qty, method: "stripe", name: co.name, email: co.email });
       try { sessionStorage.removeItem("asiatix_order"); } catch { /* ignore */ }
     } catch (err) { console.error(err); }
-    history.replaceState({}, "", location.pathname);
+    clean();
   }
 
   function qrSVG(seed) {
@@ -447,7 +447,6 @@
       const tier = e.target.closest("[data-tier]"); if (tier) { co.tier = tier.dataset.tier; return renderCheckout(); }
       const q = e.target.closest("[data-q]"); if (q) { co.qty = Math.min(10, Math.max(1, co.qty + +q.dataset.q)); return renderCheckout(); }
       const go = e.target.closest("[data-go]"); if (go) return goStep(+go.dataset.go);
-      const m = e.target.closest("[data-m]"); if (m) { co.method = m.dataset.m; return renderCheckout(); }
       if (e.target.closest("#payBtn")) pay();
     });
     addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeCheckout(); });

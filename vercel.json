@@ -4,7 +4,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
-    "api/*.js": {
+    "api/**/*.js": {
       "includeFiles": "data/**",
       "maxDuration": 10
     }
