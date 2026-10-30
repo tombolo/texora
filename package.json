@@ -8,6 +8,6 @@
     "dev": "node server.js"
   },
   "engines": {
-    "node": "20.x"
+    "node": "26.x"
   }
 }
