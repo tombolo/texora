@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AsiaTix Admin</title>
+  <link rel="icon" href="img/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body class="admin-body">
+  <div class="aurora"><i></i><i></i><i></i></div>
+
+  <div id="loginView" class="login-wrap">
+    <div class="login-card">
+      <img class="login-photo" src="img/logo.jpg" alt="" />
+      <h1>AsiaTix Admin</h1>
+      <p>Sign in to manage tickets and support messages.</p>
+      <label class="field">Password
+        <input id="loginPass" type="password" autocomplete="current-password" />
+      </label>
+      <button class="btn btn-primary" id="loginBtn" type="button">Sign in</button>
+      <p class="login-err" id="loginErr" hidden>Wrong password</p>
+    </div>
+  </div>
+
+  <div id="appView" hidden>
+    <aside class="aside">
+      <a class="brand" href="index.html">
+        <span class="brand-mark"><img src="img/logo.jpg" alt="" /></span>
+        <span class="brand-name">Asia<b>Tix</b></span>
+      </a>
+      <nav>
+        <button class="aside-btn on" data-tab="tickets">Tickets</button>
+        <button class="aside-btn" data-tab="inbox">Messages <i class="badge" id="unreadBadge" hidden>0</i></button>
+      </nav>
+      <div class="aside-foot">
+        <a href="index.html" class="muted">View site</a>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <section id="ticketsTab">
+        <header class="admin-head">
+          <div>
+            <h2>Tickets</h2>
+            <p class="muted">Upload a photo and the event details. They appear on the public site immediately.</p>
+          </div>
+          <button class="btn btn-primary" id="newTicket" type="button">Add ticket</button>
+        </header>
+        <div class="admin-grid" id="ticketList"></div>
+      </section>
+
+      <section id="inboxTab" hidden>
+        <header class="admin-head">
+          <div>
+            <h2>Support messages</h2>
+            <p class="muted">When a visitor writes from the chat icon, the conversation lands here. Reply and they see it in the same chat.</p>
+          </div>
+        </header>
+        <div class="inbox" id="inbox">
+          <div class="thread-list" id="threadList"></div>
+          <div class="thread-view" id="threadView">
+            <p class="muted" id="threadEmpty">Select a conversation.</p>
+            <div id="threadBody">
+              <button type="button" class="back-thread" id="backThread">← Conversations</button>
+              <div class="thread-meta" id="threadMeta"></div>
+              <div class="thread-msgs" id="threadMsgs"></div>
+              <form class="reply" id="replyForm">
+                <input id="replyText" placeholder="Reply to this visitor…" autocomplete="off" />
+                <button class="btn btn-primary" type="submit">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="ticketModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <button class="modal-x" data-close aria-label="Close">✕</button>
+      <h3 id="ticketModalTitle">Add ticket</h3>
+      <form id="ticketForm">
+        <input type="hidden" id="evId" />
+        <label class="field">Title <input id="evTitle" required /></label>
+        <div class="two">
+          <label class="field">City <input id="evCity" required /></label>
+          <label class="field">Country
+            <select id="evCc"></select>
+          </label>
+        </div>
+        <div class="two">
+          <label class="field">Category
+            <select id="evCat">
+              <option value="music">Music</option>
+              <option value="festival">Festival</option>
+              <option value="sports">Sports</option>
+              <option value="culture">Culture</option>
+              <option value="tour">Experience</option>
+            </select>
+          </label>
+          <label class="field">Price (USD) <input id="evUsd" type="number" min="0" step="1" required /></label>
+        </div>
+        <div class="two">
+          <label class="field">Date & time <input id="evDate" type="datetime-local" required /></label>
+          <label class="field">Tickets left <input id="evLeft" type="number" min="0" step="1" value="50" /></label>
+        </div>
+        <label class="field check"><input id="evHot" type="checkbox" /> Mark as HOT</label>
+        <label class="field">Description <textarea id="evDesc" rows="3"></textarea></label>
+        <label class="field">Photo
+          <input id="evFile" type="file" accept="image/*" />
+        </label>
+        <img id="evPreview" class="preview" alt="" hidden />
+        <div class="co-actions">
+          <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+          <button class="btn btn-primary" type="submit">Save ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

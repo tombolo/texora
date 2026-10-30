@@ -1,0 +1,16 @@
+[
+  {
+    "id": "Tpqfs6ga2",
+    "name": "Maya Chen",
+    "email": "maya@example.com",
+    "created": 1793327477584,
+    "unread": 0,
+    "messages": [
+      {
+        "from": "user",
+        "text": "Hi, can I change my ticket date?",
+        "at": 1793327477584
+      }
+    ]
+  }
+]

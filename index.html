@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AsiaTix — Tickets to Asia's best nights</title>
+  <meta name="description" content="Buy tickets for concerts, festivals, sports and experiences across Asia. Auto-localised language, currency and payment methods." />
+  <meta name="theme-color" content="#0b0b0c" />
+  <link rel="icon" href="img/logo.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="is-loading">
+
+  <!-- ============ LOADER ============ -->
+  <div id="loader" aria-live="polite">
+    <div class="loader-bg"></div>
+    <div class="loader-inner">
+      <div class="loader-ticket">
+        <div class="lt-ring"></div>
+        <div class="lt-logo"><img src="img/logo.jpg" alt="" /></div>
+      </div>
+      <div class="loader-brand">Asia<b>Tix</b></div>
+      <div class="loader-bar"><i id="loaderBar"></i></div>
+      <div class="loader-pct"><span id="loaderPct">0</span>%</div>
+      <div class="loader-words" id="loaderWords"><span>你好</span><span>こんにちは</span><span>안녕하세요</span><span>नमस्ते</span><span>สวัสดี</span><span>Xin chào</span><span>Halo</span><span>مرحبا</span><span>Hello</span></div>
+    </div>
+  </div>
+
+  <div class="cursor-glow" id="cursorGlow"></div>
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="grain"></div>
+
+  <!-- ============ NAV ============ -->
+  <header class="nav" id="nav">
+    <a class="brand" href="#top" aria-label="AsiaTix">
+      <span class="brand-mark"><img src="img/logo.jpg" alt="" /></span>
+      <span class="brand-name">Asia<b>Tix</b></span>
+    </a>
+    <nav class="nav-links">
+      <a href="#events" data-i18n="nav_events">Events</a>
+      <a href="#destinations" data-i18n="nav_dest">Destinations</a>
+      <a href="#payments" data-i18n="nav_pay">Payments</a>
+      <a href="#faq" data-i18n="nav_faq">FAQ</a>
+    </nav>
+    <div class="nav-tools">
+      <label class="select-chip" title="Region">
+        <span id="regionFlag">🌏</span>
+        <select id="regionSelect" aria-label="Region"></select>
+      </label>
+      <label class="select-chip" title="Language">
+        <span>🌐</span>
+        <select id="langSelect" aria-label="Language"></select>
+      </label>
+      <a href="#events" class="btn btn-sm btn-primary" data-i18n="cta">Get tickets</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="badge reveal"><i class="pulse"></i><span data-i18n="badge">Live events across 14 Asian countries</span></div>
+        <h1 class="reveal d1"><span data-i18n="h1a">Your ticket to</span><br /><span class="grad" data-i18n="h1b">Asia's best nights</span></h1>
+        <p class="lead reveal d2" data-i18n="sub">Concerts, festivals, sports and unforgettable experiences.</p>
+        <form class="search reveal d3" id="searchForm">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="searchInput" type="search" autocomplete="off" data-i18n-ph="search_ph" placeholder="Search events or cities…" />
+          <button class="btn btn-primary" type="submit" data-i18n="search_btn">Search</button>
+        </form>
+        <div class="stats reveal d4">
+          <div><b data-count="250" data-suffix="+">0</b><span data-i18n="st_events">Events</span></div>
+          <div><b data-count="38">0</b><span data-i18n="st_cities">Cities</span></div>
+          <div><b data-count="1.2" data-dec="1" data-suffix="M">0</b><span data-i18n="st_fans">Happy fans</span></div>
+          <div><b data-count="4.9" data-dec="1">0</b><span data-i18n="st_rating">Avg. rating</span></div>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal d2" id="heroVisual">
+        <div class="orbit o1"></div><div class="orbit o2"></div>
+        <div class="float-ticket ft1" data-depth="26">
+          <div class="ft-art"><img src="img/seoul-concert.jpg" alt="" /></div>
+          <div class="ft-body"><small>SEOUL · KR</small><b>Sky K-Pop Live</b><em>Sat · 20:00</em></div>
+          <div class="ft-stub"><i class="bars"></i></div>
+        </div>
+        <div class="float-ticket ft2" data-depth="40">
+          <div class="ft-art"><img src="img/tokyo-neon.jpg" alt="" /></div>
+          <div class="ft-body"><small>TOKYO · JP</small><b>Neon Nights Fest</b><em>Fri · 18:30</em></div>
+          <div class="ft-stub"><i class="bars"></i></div>
+        </div>
+        <div class="float-ticket ft3" data-depth="16">
+          <div class="ft-art"><img src="img/bali.jpg" alt="" /></div>
+          <div class="ft-body"><small>BALI · ID</small><b>Sunset Sound</b><em>Sun · 17:00</em></div>
+          <div class="ft-stub"><i class="bars"></i></div>
+        </div>
+        <div class="chip-float c1"><span id="chipLoc">—</span></div>
+        <div class="chip-float c2">QR · instant</div>
+      </div>
+    </section>
+
+    <!-- ============ MARQUEE ============ -->
+    <section class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span>Tokyo</span><i>✦</i><span>Seoul</span><i>✦</i><span>Shanghai</span><i>✦</i><span>Mumbai</span><i>✦</i><span>Bangkok</span><i>✦</i><span>Singapore</span><i>✦</i><span>Bali</span><i>✦</i><span>Hanoi</span><i>✦</i><span>Manila</span><i>✦</i><span>Dubai</span><i>✦</i><span>Taipei</span><i>✦</i><span>Kuala Lumpur</span><i>✦</i>
+        <span>Tokyo</span><i>✦</i><span>Seoul</span><i>✦</i><span>Shanghai</span><i>✦</i><span>Mumbai</span><i>✦</i><span>Bangkok</span><i>✦</i><span>Singapore</span><i>✦</i><span>Bali</span><i>✦</i><span>Hanoi</span><i>✦</i><span>Manila</span><i>✦</i><span>Dubai</span><i>✦</i><span>Taipei</span><i>✦</i><span>Kuala Lumpur</span><i>✦</i>
+      </div>
+    </section>
+
+    <!-- ============ EVENTS ============ -->
+    <section class="section" id="events">
+      <div class="section-head reveal">
+        <h2 data-i18n="ev_title">Trending events</h2>
+        <p data-i18n="ev_sub">Hand-picked experiences that sell out fast.</p>
+      </div>
+      <div class="filters reveal d1" id="filters"></div>
+      <div class="grid" id="eventGrid"></div>
+      <p class="empty" id="emptyMsg" hidden data-i18n="none">No events match your search.</p>
+    </section>
+
+    <!-- ============ HOW ============ -->
+    <section class="section how">
+      <div class="section-head reveal"><h2 data-i18n="how_title">Three taps to the front row</h2></div>
+      <div class="steps">
+        <div class="step reveal"><span class="step-n">01</span><div class="step-ic"><img src="img/logo.jpg" alt="" /></div><h3 data-i18n="s1t">Pick your event</h3><p data-i18n="s1d">Browse by city, date or vibe.</p></div>
+        <div class="step reveal d1"><span class="step-n">02</span><div class="step-ic"><img src="img/pay.jpg" alt="" /></div><h3 data-i18n="s2t">Pay your way</h3><p data-i18n="s2d">Local wallets, cards and more.</p></div>
+        <div class="step reveal d2"><span class="step-n">03</span><div class="step-ic"><img src="img/phone.jpg" alt="" /></div><h3 data-i18n="s3t">Get your e-ticket</h3><p data-i18n="s3d">Instant QR ticket.</p></div>
+      </div>
+    </section>
+
+    <!-- ============ DESTINATIONS ============ -->
+    <section class="section" id="destinations">
+      <div class="section-head reveal">
+        <h2 data-i18n="dest_title">Popular destinations</h2>
+        <p data-i18n="dest_sub">Where the crowds are heading next.</p>
+      </div>
+      <div class="dest-grid" id="destGrid"></div>
+    </section>
+
+    <!-- ============ PAYMENTS ============ -->
+    <section class="section pay" id="payments">
+      <div class="pay-card reveal">
+        <div class="pay-copy">
+          <h2 data-i18n="pay_title">Pay the way you already do</h2>
+          <p data-i18n="pay_sub">Locally loved payment methods, shown automatically for your country.</p>
+          <div class="pay-for"><span id="payForFlag">🌏</span><span id="payForText"></span></div>
+          <div class="secure"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-i18n="secure">256-bit encrypted checkout</span></div>
+        </div>
+        <div class="pay-methods" id="payMethods"></div>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="section faq" id="faq">
+      <div class="section-head reveal"><h2 data-i18n="faq_title">Questions, answered</h2></div>
+      <div class="faq-list">
+        <details class="reveal"><summary data-i18n="q1">Q1</summary><p data-i18n="a1">A1</p></details>
+        <details class="reveal d1"><summary data-i18n="q2">Q2</summary><p data-i18n="a2">A2</p></details>
+        <details class="reveal d2"><summary data-i18n="q3">Q3</summary><p data-i18n="a3">A3</p></details>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="footer-top">
+      <div>
+        <a class="brand" href="#top"><span class="brand-mark"><img src="img/logo.jpg" alt="" /></span><span class="brand-name">Asia<b>Tix</b></span></a>
+        <p class="muted" data-i18n="foot_tag">Tickets to the moments that matter, across Asia.</p>
+      </div>
+      <form class="news" id="newsForm">
+        <input type="email" required data-i18n-ph="news_ph" placeholder="Your email" />
+        <button class="btn btn-primary" data-i18n="news_btn">Subscribe</button>
+      </form>
+    </div>
+    <div class="footer-bottom">© <span id="year"></span> AsiaTix · <span data-i18n="rights">All rights reserved.</span></div>
+  </footer>
+
+  <!-- ============ CHECKOUT MODAL ============ -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button class="modal-x" data-close aria-label="Close">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <button class="chat-fab" id="chatFab" type="button" aria-label="Support">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+    <i id="chatDot" hidden></i>
+  </button>
+  <div class="chat-panel" id="chatPanel" hidden>
+    <header>
+      <div>
+        <b data-i18n="chat_title">Support</b>
+        <small data-i18n="chat_online">Usually replies within a few minutes</small>
+      </div>
+      <button type="button" id="chatClose" aria-label="Close">✕</button>
+    </header>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <form class="chat-form" id="chatForm">
+      <div class="chat-ids">
+        <input id="chatName" data-i18n-ph="chat_name" placeholder="Your name" />
+        <input id="chatEmail" type="email" data-i18n-ph="chat_email" placeholder="Email" />
+      </div>
+      <div class="chat-row">
+        <input id="chatText" data-i18n-ph="chat_ph" placeholder="Write a message…" autocomplete="off" />
+        <button class="btn btn-primary btn-sm" type="submit" data-i18n="chat_send">Send</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <canvas id="confetti"></canvas>
+
+  <script src="config.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
